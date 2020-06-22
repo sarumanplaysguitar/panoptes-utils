@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
+set -e
 
 usage() {
   echo -n "##################################################
@@ -13,14 +14,14 @@ usage() {
 
  Options:
   FILENAME          Name of CR2 file that holds jpeg.
-  TITLE             Optional tilte to be placed on jpeg.
+  TITLE             Optional title to be placed on jpeg.
 
  Example:
   cr2-to-jpg /var/panoptes/images/temp.cr2 \"M42 (Orion's Nebula)\"
 "
 }
 
-if [ $# -eq 0 ]; then
+if [[ $# -eq 0 ]]; then
     usage
     exit 1
 fi

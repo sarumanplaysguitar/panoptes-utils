@@ -8,12 +8,12 @@ addons:
 python:
   - "3.6"
 services:
-- docker
+  - docker
 before_install:
-- mkdir -p $HOME/data && wget -qO- ${TEST_CR2_FILE} > $TRAVIS_BUILD_DIR/panoptes/tests/data/canon.cr2
-- docker build -t panoptes-utils:testing -f ${TRAVIS_BUILD_DIR}/docker/latest.Dockerfile ${TRAVIS_BUILD_DIR}
+  - sed -i s'/^\.git$/\!\.git/' .dockerignore
+  - docker build -t panoptes-utils:develop -f ${TRAVIS_BUILD_DIR}/docker/develop.Dockerfile ${TRAVIS_BUILD_DIR}
 install: true
 script:
-- docker run -it
-  panoptes-utils:testing
-  scripts/testing/run-tests.sh
+  - docker run -it
+    panoptes-utils:develop
+    scripts/testing/run-tests.sh

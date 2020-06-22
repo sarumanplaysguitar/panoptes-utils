@@ -1,7 +1,10 @@
-ARG base_image=python:3.8-slim-buster
+ARG IMAGE_URL=python:3.8-slim-buster
 
-FROM $base_image AS base-image
-MAINTAINER Developers for PANOPTES project<https://github.com/panoptes/POCS>
+FROM ${IMAGE_URL} AS base-image
+LABEL description="Installs the panoptes-utils module from pip. \
+Used as a production image, e.g. for running panoptes-network items."
+LABEL maintainers="developers@projectpanoptes.org"
+LABEL repo="github.com/panoptes/panoptes-utils"
 
 ARG panuser=panoptes
 ARG userid=1000
@@ -22,14 +25,14 @@ ENV POCS $pocs_dir
 ENV PATH "/home/${PANUSER}/.local/bin:$PATH"
 ENV SOLVE_FIELD /usr/bin/solve-field
 
-# For now we copy from local - can have bad effects if in wrong branch
 COPY docker/zshrc /tmp
+COPY ./scripts/download-data.py /tmp/download-data.py
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         gosu wget curl bzip2 ca-certificates zsh openssh-client nano \
         astrometry.net sextractor dcraw exiftool libcfitsio-dev libcfitsio-bin imagemagick \
-        libzmq3-dev libfreetype6-dev libpng-dev libpq-dev fonts-lato libsnappy-dev \
+        libfreetype6-dev libpng-dev fonts-lato libsnappy-dev \
         gcc git pkg-config sudo && \
     # Oh My ZSH. :)
     mkdir -p "${ZSH_CUSTOM}" && \
@@ -52,35 +55,30 @@ RUN apt-get update && \
     mkdir -p /home/$panuser/.key && \
     ssh-keygen -q -t rsa -N "" -f "/home/${panuser}/.key/id_rsa" && \
     # Update permissions for current user.
-    chown -R ${USERID}:${USERID} "/home/${panuser}" && \
-    chown -R ${USERID}:${USERID} ${PANDIR} && \
-    # Astrometry folders
-    mkdir -p "${astrometry_dir}" && \
-    chown -R ${USERID}:${USERID} ${astrometry_dir} && \
-    echo "add_path ${astrometry_dir}" >> /etc/astrometry.cfg
-
-USER $PANUSER
-
-# Can't seem to get around the hard-coding
-COPY --chown=panoptes:panoptes . ${PANDIR}/panoptes-utils/
-
-RUN cd ${PANDIR}/panoptes-utils && \
-    # First deal with pip and PyYAML - see https://github.com/pypa/pip/issues/5247
-    pip install --no-cache-dir --no-deps --ignore-installed pip PyYAML && \
-    # Install requirements
-    pip install --no-cache-dir -r requirements.txt && \
+    chown -R ${PANUSER}:${PANUSER} "/home/${panuser}" && \
+    chown -R ${PANUSER}:${PANUSER} ${PANDIR} && \
     # Install module
-    pip install --no-cache-dir -e . && \
-    # Download astrometry.net files
-    python scripts/download-data.py \
+    pip install "panoptes-utils[testing]" && \
+    # astrometry.net folders
+    mkdir -p "${astrometry_dir}" && \
+    echo "add_path ${astrometry_dir}" >> /etc/astrometry.cfg && \
+    # astrometry.net index files
+    python /tmp/download-data.py \
         --wide-field --narrow-field \
         --folder "${astrometry_dir}" \
-        --verbose
-
-USER root
-
-# Cleanup apt.
-RUN apt-get autoremove --purge -y gcc pkg-config && \
+        --verbose && \
+    chown -R ${PANUSER}:${PANUSER} ${astrometry_dir} && \
+    chmod -R 777 ${astrometry_dir} && \
+    # Cleanup
+    apt-get autoremove --purge -y \
+        autoconf \
+        automake \
+        autopoint \
+        build-essential \
+        gcc \
+        gettext \
+        libtool \
+        pkg-config && \
     apt-get autoremove --purge -y && \
     apt-get -y clean && \
     rm -rf /var/lib/apt/lists/*
